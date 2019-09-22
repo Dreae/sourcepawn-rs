@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "sourcepawn-parser",
+    "sourcepawn-lexer",
+]
