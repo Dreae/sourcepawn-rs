@@ -3,4 +3,5 @@
 members = [
     "sourcepawn-parser",
     "sourcepawn-lexer",
+    "sourcepawn-cli"
 ]
