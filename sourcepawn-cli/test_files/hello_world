@@ -1,0 +1,7 @@
+// Line comment
+public void SayHello() {
+       PrintToServer("Hello, world!");
+       if (foo == 'c' || foo == '\n') {
+          return;
+       }
+}

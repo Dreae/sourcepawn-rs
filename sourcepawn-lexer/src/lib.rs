@@ -2,6 +2,7 @@ mod cursor;
 
 use crate::cursor::{Cursor, EOF};
 
+#[derive(Clone, Copy, Debug)]
 pub struct Token {
     pub kind: TokenKind,
     pub len: usize,
@@ -53,9 +54,53 @@ pub enum LiteralKind {
     Char,
     String,
     Integer,
-    Float0
+    Float
 }
 use self::LiteralKind::*;
+
+// Taken from the rust compiler:
+// https://github.com/rust-lang/rust/blob/master/src/librustc_lexer/src/lib.rs#L105
+// See [UAX #31](http://unicode.org/reports/tr31) for definitions of these
+// classes.
+
+/// True if `c` is considered a whitespace according to Rust language definition.
+pub fn is_whitespace(c: char) -> bool {
+    // This is Pattern_White_Space.
+    //
+    // Note that this set is stable (ie, it doesn't change with different
+    // Unicode versions), so it's ok to just hard-code the values.
+
+    match c {
+        // Usual ASCII suspects
+        | '\u{0009}' // \t
+            | '\u{000A}' // \n
+            | '\u{000B}' // vertical tab
+            | '\u{000C}' // form feed
+            | '\u{000D}' // \r
+            | '\u{0020}' // space
+
+        // NEXT LINE from latin1
+            | '\u{0085}'
+
+        // Bidi markers
+            | '\u{200E}' // LEFT-TO-RIGHT MARK
+            | '\u{200F}' // RIGHT-TO-LEFT MARK
+
+        // Dedicated whitespace characters from Unicode
+            | '\u{2028}' // LINE SEPARATOR
+            | '\u{2029}' // PARAGRAPH SEPARATOR
+            => true,
+        _ => false,
+    }
+}
+
+pub fn is_ident_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
+}
+
+pub fn is_ident_continue(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
 
 pub fn first_token(input: &str) -> Token {
     Cursor::new(input).advance_token()
@@ -80,7 +125,31 @@ impl Cursor<'_> {
             '/' => match self.peek() {
                 '/' => self.line_comment(),
                 _ => Slash,
-            }
+            },
+            c if is_whitespace(c) => self.whitespace(),
+            c if is_ident_start(c) => self.ident(),
+            ';' => Semicolon,
+            ',' => Comma,
+            '.' => Dot,
+            '(' => OpenParen,
+            ')' => CloseParen,
+            '{' => OpenBrace,
+            '}' => CloseBrace,
+            '[' => OpenBracket,
+            ']' => CloseBracket,
+            '=' => Eq,
+            '!' => Bang,
+            '>' => Gt,
+            '<' => Lt,
+            '-' => Minus,
+            '+' => Plus,
+            '*' => Star,
+            '&' => And,
+            '|' => Or,
+            '^' => Caret,
+            '%' => Percent,
+            '"' => self.string(),
+            '\'' => self.char(),
             _ => Unknown
         };
 
@@ -99,5 +168,62 @@ impl Cursor<'_> {
             }
         }
         LineComment
+    }
+
+    fn whitespace(&mut self) -> TokenKind {
+        while is_whitespace(self.peek()) {
+            self.bump();
+        }
+
+        Whitespace
+    }
+
+    fn ident(&mut self) -> TokenKind {
+        while is_ident_continue(self.peek()) {
+            self.bump();
+        }
+
+        Ident
+    }
+
+    fn string(&mut self) -> TokenKind {
+        let suffix_start = self.len_consumed();
+        loop {
+            match self.peek() {
+                '"' => {
+                    self.bump();
+                    break;
+                },
+                EOF => break,
+                '\\' if self.nth_char(1) == '\\' || self.nth_char(1) == '"' => {
+                    self.bump()
+                },
+                _ => self.bump()
+            };
+        }
+
+        Literal { kind: String, suffix_start }
+    }
+
+    fn char(&mut self) -> TokenKind {
+        let suffix_start = self.len_consumed();
+        loop {
+            match self.peek() {
+                '\'' => {
+                    self.bump();
+                    break;
+                },
+                EOF => break,
+                '\\' => {
+                    self.bump();
+                    self.bump();
+                },
+                _ => {
+                    self.bump();
+                }
+            };
+        }
+
+        Literal { kind: Char, suffix_start }
     }
 }
