@@ -1,8 +1,9 @@
 mod cursor;
 
 use crate::cursor::{Cursor, EOF};
+use std::string::String;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub kind: TokenKind,
     pub len: usize,
@@ -17,12 +18,12 @@ impl Token {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum TokenKind {
     LineComment,
     BlockComment,
     Whitespace,
-    Ident,
+    Ident { name: String },
     Literal { kind: LiteralKind, suffix_start: usize },
     Semicolon,
     Comma,
@@ -45,6 +46,7 @@ pub enum TokenKind {
     Slash,
     Caret,
     Percent,
+    Keyword { kind: KeywordKind },
     Unknown
 }
 use self::TokenKind::*;
@@ -57,6 +59,40 @@ pub enum LiteralKind {
     Float
 }
 use self::LiteralKind::*;
+
+#[derive(Clone, Copy, Debug)]
+pub enum KeywordKind {
+    Public,
+    Const,
+    Native,
+    Return,
+    For,
+    If,
+    Else,
+    While,
+    MethodMap,
+    Stock,
+    Do,
+    Switch,
+    Case,
+    Break,
+    Default,
+    Continue,
+    New,
+    Decl,
+    Delete,
+    Forward,
+    Property,
+    Enum,
+    Functag,
+    Funcenum,
+    Struct,
+    Typedef,
+    Typeset,
+    Static,
+    ViewAs,
+}
+use self::KeywordKind::*;
 
 // Taken from the rust compiler:
 // https://github.com/rust-lang/rust/blob/master/src/librustc_lexer/src/lib.rs#L105
@@ -106,6 +142,40 @@ pub fn first_token(input: &str) -> Token {
     Cursor::new(input).advance_token()
 }
 
+pub fn is_keyword(ident: &str) -> Option<KeywordKind> {
+    match ident {
+        "if" => Some(If),
+        "else" => Some(Else),
+        "for" => Some(For),
+        "while" => Some(While),
+        "do" => Some(Do),
+        "switch" => Some(Switch),
+        "case" => Some(Case),
+        "default" => Some(Default),
+        "return" => Some(Return),
+        "break" => Some(Break),
+        "continue" => Some(Continue),
+        "new" => Some(New),
+        "decl" => Some(Decl),
+        "delete" => Some(Delete),
+        "forward" => Some(Forward),
+        "native" => Some(Native),
+        "property" => Some(Property),
+        "public" => Some(Public),
+        "stock" => Some(Stock),
+        "enum" => Some(Enum),
+        "funcenum" => Some(Funcenum),
+        "functag" => Some(Functag),
+        "methodmap" => Some(MethodMap),
+        "struct" => Some(Struct),
+        "typedef" => Some(Typedef),
+        "typeset" => Some(Typeset),
+        "static" => Some(Static),
+        "view_as" => Some(ViewAs),
+        _ => None,
+    }
+}
+
 pub fn tokenize(mut source: &str) -> impl Iterator<Item = Token> + '_ {
     std::iter::from_fn(move || {
         if source.is_empty() {
@@ -127,7 +197,7 @@ impl Cursor<'_> {
                 _ => Slash,
             },
             c if is_whitespace(c) => self.whitespace(),
-            c if is_ident_start(c) => self.ident(),
+            c if is_ident_start(c) => self.ident(c),
             ';' => Semicolon,
             ',' => Comma,
             '.' => Dot,
@@ -178,12 +248,17 @@ impl Cursor<'_> {
         Whitespace
     }
 
-    fn ident(&mut self) -> TokenKind {
+    fn ident(&mut self, start: char) -> TokenKind {
+        let mut name = String::new();
+        name.push(start);
         while is_ident_continue(self.peek()) {
-            self.bump();
+            name.push(self.bump().unwrap());
         }
 
-        Ident
+        match is_keyword(&name) {
+            Some(kind) => Keyword { kind },
+            _ => Ident { name }
+        }
     }
 
     fn string(&mut self) -> TokenKind {
