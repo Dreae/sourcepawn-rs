@@ -18,7 +18,7 @@ impl Token {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
     LineComment,
     BlockComment,
@@ -51,7 +51,7 @@ pub enum TokenKind {
 }
 use self::TokenKind::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LiteralKind {
     Char,
     String,
@@ -60,7 +60,7 @@ pub enum LiteralKind {
 }
 use self::LiteralKind::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum KeywordKind {
     Public,
     Const,

@@ -1,8 +1,10 @@
 use clap::{Arg, App};
 use sourcepawn_lexer::tokenize;
+use sourcepawn_parser::parse;
 use std::fs::read_to_string;
 use std::error::Error;
 use std::process::exit;
+use sourcepawn_lexer::Token;
 
 fn main() {
     let matches = App::new("sourcepawn")
@@ -19,8 +21,7 @@ fn main() {
             exit(1);
         }
     };
-    let tokens = tokenize(&source);
-    for token in tokens {
-        println!("{:?}", token);
-    }
+    let token_stream = tokenize(&source);
+    let tokens: Vec<Token> = token_stream.collect();
+    parse(&tokens, &source);
 }
