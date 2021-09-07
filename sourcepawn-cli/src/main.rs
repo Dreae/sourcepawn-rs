@@ -2,7 +2,6 @@ use clap::{Arg, App};
 use sourcepawn_lexer::tokenize;
 use sourcepawn_parser::parse;
 use std::fs::read_to_string;
-use std::error::Error;
 use std::process::exit;
 use sourcepawn_lexer::Token;
 
@@ -17,11 +16,12 @@ fn main() {
     let source: String = match read_to_string(matches.value_of("INPUT").unwrap()) {
         Ok(string) => string,
         Err(err) => {
-            println!("Error reading input file: {}", err.description());
+            println!("Error reading input file: {}", err);
             exit(1);
         }
     };
     let token_stream = tokenize(&source);
     let tokens: Vec<Token> = token_stream.collect();
-    parse(&tokens, &source);
+    println!("{:?}", tokens);
+    parse(&tokens);
 }

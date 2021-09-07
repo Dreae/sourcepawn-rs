@@ -1,5 +1,7 @@
 use sourcepawn_lexer::Token;
 
+pub trait ASTNode { }
+
 #[derive(Debug)]
 pub struct TopLevelStatement {
     kind: TopLevelStatementKind,

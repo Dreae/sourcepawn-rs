@@ -24,7 +24,7 @@ pub enum TokenKind {
     BlockComment,
     Whitespace,
     Ident { name: String },
-    Literal { kind: LiteralKind, suffix_start: usize },
+    Literal { kind: LiteralKind },
     Semicolon,
     Comma,
     Dot,
@@ -194,10 +194,12 @@ impl Cursor<'_> {
         let token_kind = match first_char {
             '/' => match self.peek() {
                 '/' => self.line_comment(),
+                '*' => self.block_comment(),
                 _ => Slash,
             },
             c if is_whitespace(c) => self.whitespace(),
             c if is_ident_start(c) => self.ident(c),
+            c if c.is_numeric() => self.num_literal(),
             ';' => Semicolon,
             ',' => Comma,
             '.' => Dot,
@@ -240,6 +242,26 @@ impl Cursor<'_> {
         LineComment
     }
 
+    fn block_comment(&mut self) -> TokenKind {
+        loop {
+            match self.bump() {
+                Some('*') => {
+                    match self.peek() {
+                        '/' => {
+                            self.bump();
+                            break;
+                        },
+                        _ => continue
+                    }
+                }
+                Some(_) => continue,
+                None => break
+            }
+        }
+
+        BlockComment
+    }
+
     fn whitespace(&mut self) -> TokenKind {
         while is_whitespace(self.peek()) {
             self.bump();
@@ -262,7 +284,6 @@ impl Cursor<'_> {
     }
 
     fn string(&mut self) -> TokenKind {
-        let suffix_start = self.len_consumed();
         loop {
             match self.peek() {
                 '"' => {
@@ -277,11 +298,10 @@ impl Cursor<'_> {
             };
         }
 
-        Literal { kind: String, suffix_start }
+        Literal { kind: String }
     }
 
     fn char(&mut self) -> TokenKind {
-        let suffix_start = self.len_consumed();
         loop {
             match self.peek() {
                 '\'' => {
@@ -299,6 +319,35 @@ impl Cursor<'_> {
             };
         }
 
-        Literal { kind: Char, suffix_start }
+        Literal { kind: Char }
+    }
+
+    fn num_literal(&mut self) -> TokenKind {
+        loop {
+            match self.peek() {
+                c if c.is_numeric() => {
+                    self.bump();
+                },
+                '.' => {
+                    return self.float_literal()
+                },
+                _ => break
+            }
+        }
+
+        Literal { kind: Integer }
+    }
+
+    fn float_literal(&mut self) -> TokenKind {
+        loop {
+            match self.peek() {
+                c if c.is_numeric() => {
+                    self.bump();
+                },
+                _ => break
+            }
+        }
+
+        Literal { kind: Float }
     }
 }
