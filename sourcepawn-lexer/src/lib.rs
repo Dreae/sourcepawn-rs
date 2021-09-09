@@ -1,9 +1,13 @@
 mod cursor;
+mod symbol_table;
 
 use crate::cursor::{Cursor, EOF};
 use std::string::String;
 
-#[derive(Clone, Debug)]
+
+pub use crate::symbol_table::*;
+
+#[derive(Copy, Clone, Debug)]
 pub struct Token {
     pub kind: TokenKind,
     pub len: usize,
@@ -16,14 +20,28 @@ impl Token {
             len,
         }
     }
+
+    pub fn dummy() -> Token {
+        Token {
+            kind: TokenKind::Dummy,
+            len: 0
+        }
+    }
+
+    pub fn eof() -> Token {
+        Token {
+            kind: TokenKind::EoF,
+            len: 0
+        }
+    }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TokenKind {
     LineComment,
     BlockComment,
     Whitespace,
-    Ident { name: String },
+    Ident { name: Symbol },
     Literal { kind: LiteralKind },
     Semicolon,
     Comma,
@@ -47,16 +65,19 @@ pub enum TokenKind {
     Caret,
     Percent,
     Keyword { kind: KeywordKind },
-    Unknown
+    Unknown,
+    Dummy,
+    EoF
 }
 use self::TokenKind::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LiteralKind {
     Char,
-    String,
+    String(Symbol),
     Integer,
-    Float
+    Float,
+    Bool(bool)
 }
 use self::LiteralKind::*;
 
@@ -93,6 +114,22 @@ pub enum KeywordKind {
     ViewAs,
 }
 use self::KeywordKind::*;
+
+impl Token {
+    pub fn is_keyword(&self, kind: KeywordKind) -> bool {
+        match self.kind {
+            TokenKind::Keyword { kind: kw_kind } => kw_kind == kind,
+            _ => false
+        }
+    }
+
+    pub fn is_ident(&self) -> bool {
+        match self.kind {
+            TokenKind::Ident { .. } => true,
+            _ => false
+        }
+    }
+}
 
 // Taken from the rust compiler:
 // https://github.com/rust-lang/rust/blob/master/src/librustc_lexer/src/lib.rs#L105
@@ -173,6 +210,14 @@ pub fn is_keyword(ident: &str) -> Option<KeywordKind> {
         "static" => Some(Static),
         "view_as" => Some(ViewAs),
         _ => None,
+    }
+}
+
+pub fn is_literal(ident: &str) -> Option<LiteralKind> {
+    match ident {
+        "true" => Some(LiteralKind::Bool(true)),
+        "false" => Some(LiteralKind::Bool(false)),
+        _ => None
     }
 }
 
@@ -279,11 +324,17 @@ impl Cursor<'_> {
 
         match is_keyword(&name) {
             Some(kind) => Keyword { kind },
-            _ => Ident { name }
+            _ => {
+                match is_literal(&name) {
+                    Some(kind) => Literal { kind },
+                    _ => Ident { name: Symbol::new(&name) }
+                }
+            }
         }
     }
 
     fn string(&mut self) -> TokenKind {
+        let mut value = String::new();
         loop {
             match self.peek() {
                 '"' => {
@@ -294,11 +345,14 @@ impl Cursor<'_> {
                 '\\' if self.nth_char(1) == '\\' || self.nth_char(1) == '"' => {
                     self.bump()
                 },
-                _ => self.bump()
+                c => {
+                    value.push(c);
+                    self.bump()
+                }
             };
         }
 
-        Literal { kind: String }
+        Literal { kind: String(Symbol::new(&value)) }
     }
 
     fn char(&mut self) -> TokenKind {

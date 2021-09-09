@@ -1,6 +1,8 @@
 use sourcepawn_lexer::Token;
 use sourcepawn_lexer::TokenKind::*;
 use sourcepawn_lexer::KeywordKind;
+use std::iter::Peekable;
+use std::slice::Iter;
 
 mod ast;
 mod error;
@@ -11,63 +13,84 @@ use error::ParserError;
 type Result<T> = std::result::Result<T, ParserError>;
 
 struct Parser<'a> {
-    tokens: std::slice::Iter<'a, Token>,
+    tokens: Peekable<Iter<'a, Token>>,
     current_pos: usize,
-    current_token: Option<&'a Token>
-}
+    current_token: Token,
+ }
 
 impl <'a> Parser<'a> {
     fn new<'b>(tokens: &'b [Token]) -> Parser<'b> {
         Parser {
-            tokens: tokens.iter(),
-            current_token: None,
+            tokens: tokens.iter().peekable(),
+            current_token: Token::dummy(),
             current_pos: 0
         }
     }
 
-    fn next_node(&mut self) -> Box<dyn ASTNode> {
-        self.toplevel_statement();
-        unimplemented!();
+    fn parse(&mut self) -> Result<Program> {
+        let mut statements = vec![];
+        loop {
+            match self.top_level_statement() {
+                Ok(statement) => statements.push(statement),
+                Err(e) => return Err(e)
+            }
+        }
+
+        Ok(Program {
+            statements
+        })
     }
 
-    fn toplevel_statement(&mut self) -> Option<TopLevelStatement> {
-        match self.current_token {
-            Some(Token { kind: Ident { .. }, len: _ }) => println!("Got ident"),
-            _ => println!("Wrong token"),
-        };
-        None
+    fn top_level_statement(&mut self) -> Result<TopLevelStatement> {
+        if self.current_token.is_ident() {
+            
+        }
+        
+        unimplemented!()
     }
 
-    fn function_declaration(&mut self) -> Result<TopLevelStatementKind> {
+    fn function_declaration(&mut self) -> Result<FunctionDecl> {
         match self.current_token {
-            Some(Token { kind: Keyword { kind: KeywordKind::Public }, len: _}) => Err(ParserError::new("Whoops".to_owned())),
-            _ => Err(ParserError::new("Dead".to_owned())),
+            Token { kind: Keyword { kind: KeywordKind::Public }, len: _} => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 
-    fn function_definition(&mut self) -> Result<TopLevelStatementKind> {
+    fn function_definition(&mut self) -> Result<Function> {
         match self.current_token {
-            Some(Token { kind: Keyword { kind: KeywordKind::Public }, len: _}) => Err(ParserError::new("Whoops".to_owned())),
-            _ => Err(ParserError::new("Dead".to_owned())),
+            Token { kind: Keyword { kind: KeywordKind::Public }, len: _} => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 
     fn consume_whitespace(&mut self) {
         loop {
             match self.next() {
-                Some(Token { kind: Whitespace, len: _ }) => continue,
-                _ => return break,
+                Token { kind: Whitespace, len: _ } => continue,
+                _ => break,
             };
         }
     }
 
-    fn next(&mut self) -> Option<&Token> {
-        self.current_token = self.tokens.next();
-        self.current_token
+    fn next(&mut self) -> &Token {
+        match self.tokens.next() {
+            Some(token) => {
+                self.current_pos = self.current_pos + token.len;
+                self.current_token = *token
+            },
+            _ => { 
+                self.current_token = Token::eof()
+            }
+        }
+        &self.current_token
+    }
+
+    fn peek(&mut self) -> Option<&&Token> {
+        self.tokens.peek()
     }
 
 }
 
 pub fn parse(tokens: &[Token]) {
-    Parser::new(tokens).next_node();
+    Parser::new(tokens).parse();
 }

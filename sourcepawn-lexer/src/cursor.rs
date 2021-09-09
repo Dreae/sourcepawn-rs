@@ -11,7 +11,7 @@ impl <'a> Cursor<'a> {
     pub(crate) fn new(input: &'a str) -> Cursor<'a> {
         Cursor {
             initial_len: input.len(),
-            chars: input.chars(),
+            chars: input.chars()
         }
     }
 
